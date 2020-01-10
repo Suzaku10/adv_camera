@@ -52,6 +52,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
     private SurfaceView imgSurface;
     private SurfaceHolder surfaceHolder;
     private Camera camera;
+    private CustomView customView;
     private int cameraFacing = 0;
     private SavePicTask savePicTask;
     private Camera.PictureCallback jpegCallback;
@@ -79,6 +80,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
         methodChannel.setMethodCallHandler(this);
         view = registrar.activity().getLayoutInflater().inflate(R.layout.activity_camera, null);
         imgSurface = view.findViewById(R.id.imgSurface);
+        customView = view.findViewById(R.id.rect);
         CameraFragment cameraFragment = (CameraFragment) activity.getFragmentManager().findFragmentById(R.id.cameraFragment);
         imgSurface.setFocusable(true);
         imgSurface.setFocusableInTouchMode(true);
@@ -555,7 +557,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
         public SavePicTask(byte[] data, int rotation) {
             this.data = data;
-            this.rotation = rotation;
+            this.rotation = 90;
         }
 
         protected void onPreExecute() {

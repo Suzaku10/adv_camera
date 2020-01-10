@@ -13,12 +13,30 @@ import android.os.Build;
 import android.os.Environment;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.Rational;
+import android.util.Size;
 import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.camera.core.CameraX;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageAnalysisConfig;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureConfig;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Preview;
+import androidx.camera.core.PreviewConfig;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleOwner;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -49,13 +67,10 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
     private final Activity activity;
     private boolean disposed = false;
     private View view;
-    private SurfaceView imgSurface;
-    private SurfaceHolder surfaceHolder;
-    private Camera camera;
     private int cameraFacing = 0;
     private SavePicTask savePicTask;
-    private Camera.PictureCallback jpegCallback;
     private File folder = null;
+    private CustomView customView;
     private Integer maxSize;
     private String savePath;
     private String fileNamePrefix = "adv_camera";
@@ -63,9 +78,12 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
     private int mPhotoAngle = 90;
     private String previewRatio;
     private float mDist;
-    private Camera.Size pictureSize;
-    private String flashType = Camera.Parameters.FLASH_MODE_AUTO;
     private boolean bestPictureSize;
+    PreviewConfig previewConfig;
+    Preview preview;
+    ImageCaptureConfig imgCapConfig;
+    ImageCapture imgCap;
+    private TextureView txView;
 
     AdvCamera(
             int id,
@@ -77,13 +95,19 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
         methodChannel =
                 new MethodChannel(registrar.messenger(), "plugins.flutter.io/adv_camera/" + id);
         methodChannel.setMethodCallHandler(this);
-        view = registrar.activity().getLayoutInflater().inflate(R.layout.activity_camera, null);
-        imgSurface = view.findViewById(R.id.imgSurface);
-        CameraFragment cameraFragment = (CameraFragment) activity.getFragmentManager().findFragmentById(R.id.cameraFragment);
-        imgSurface.setFocusable(true);
-        imgSurface.setFocusableInTouchMode(true);
+//        view = registrar.activity().getLayoutInflater().inflate(R.layout.activity_camera, null);
+        view = registrar.activity().getLayoutInflater().inflate(R.layout.fragment_camera, null);
+        customView = view.findViewById(R.id.rect);
+        txView = view.findViewById(R.id.imgSurface);
+        cameraConfig();
+//        imgCap = view.imgCap;
+//        imgCapConfig = cameraFragment.imgCapConfig;
+//        preview = cameraFragment.preview;
+//        previewConfig = cameraFragment.previewConfig;
+/*        imgSurface.setFocusable(true);
+        imgSurface.setFocusableInTouchMode(true);*/
 
-        cameraFragment.listener = new FragmentLifecycleListener() {
+       /* cameraFragment.listener = new FragmentLifecycleListener() {
             @Override
             public void onPause() {
             }
@@ -186,18 +210,119 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             }
         };
 
-        identifyOrientationEvents();
+        identifyOrientationEvents();*/
+    }
+
+    private void cameraConfig() {
+        CameraX.unbindAll();
+
+        int aspRatioW = txView.getWidth(); //get width of screen
+        int aspRatioH = txView.getHeight(); //get height
+        Rational asp = new Rational(aspRatioW, aspRatioH); //aspect ratio
+        Size screen = new Size(aspRatioW, aspRatioH);
+
+        previewConfig = new PreviewConfig.Builder().setTargetAspectRatio(asp).setTargetResolution(screen).build();
+        preview = new Preview(previewConfig);
+
+        preview.setOnPreviewOutputUpdateListener(
+                new Preview.OnPreviewOutputUpdateListener() {
+                    //to update the surface texture we have to destroy it first, then re-add it
+                    @Override
+                    public void onUpdated(Preview.PreviewOutput output) {
+                        ViewGroup parent = (ViewGroup) txView.getParent();
+                        parent.removeView(txView);
+                        parent.addView(txView, 0);
+
+                        txView.setSurfaceTexture(output.getSurfaceTexture());
+                        updateTransform();
+                    }
+                });
+        imgCapConfig = new ImageCaptureConfig.Builder().setCaptureMode(ImageCapture.CaptureMode.MAX_QUALITY)
+                .setTargetRotation(activity.getWindowManager().getDefaultDisplay().getRotation()).build();
+        imgCap = new ImageCapture(imgCapConfig);
+
+        ImageAnalysisConfig imgAConfig = new ImageAnalysisConfig.Builder().setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE).build();
+        ImageAnalysis analysis = new ImageAnalysis(imgAConfig);
+
+        analysis.setAnalyzer(
+                new ImageAnalysis.Analyzer() {
+                    @Override
+                    public void analyze(ImageProxy image, int rotationDegrees) {
+                        //y'all can add code to analyse stuff here idek go wild.
+                    }
+                });
+
+        //bind to lifecycle:
+        CameraX.bindToLifecycle((LifecycleOwner) this, preview, imgCap);
+    }
+
+    private void updateTransform() {
+        /*
+         * compensates the changes in orientation for the viewfinder, bc the rest of the layout stays in portrait mode.
+         * methinks :thonk:
+         * imgCap does this already, this class can be commented out or be used to optimise the preview
+         */
+        Matrix mx = new Matrix();
+        float w = txView.getMeasuredWidth();
+        float h = txView.getMeasuredHeight();
+
+        float centreX = w / 2f; //calc centre of the viewfinder
+        float centreY = h / 2f;
+
+        int rotationDgr;
+        int rotation = (int) txView.getRotation(); //cast to int bc switches don't like floats
+
+        switch (rotation) { //correct output to account for display rotation
+            case Surface.ROTATION_0:
+                rotationDgr = 0;
+                break;
+            case Surface.ROTATION_90:
+                rotationDgr = 90;
+                break;
+            case Surface.ROTATION_180:
+                rotationDgr = 180;
+                break;
+            case Surface.ROTATION_270:
+                rotationDgr = 270;
+                break;
+            default:
+                return;
+        }
+
+        mx.postRotate((float) rotationDgr, centreX, centreY);
+        txView.setTransform(mx); //apply transformations to textureview
     }
 
     private void captureImage() {
-        camera.takePicture(null, null, jpegCallback);
+        File file = new File(Environment.getExternalStorageDirectory() + "/" + System.currentTimeMillis() + ".jpg");
+        imgCap.takePicture(file, new ImageCapture.OnImageSavedListener() {
+            @Override
+            public void onImageSaved(@NonNull File file) {
+                String msg = "Photo capture succeeded: " + file.getAbsolutePath();
+                Toast.makeText(activity.getBaseContext(), msg, Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onError(@NonNull ImageCapture.UseCaseError useCaseError, @NonNull String message, @Nullable Throwable cause) {
+                String msg = "Photo capture failed: " + message;
+                Toast.makeText(activity.getBaseContext(), msg, Toast.LENGTH_LONG).show();
+                if (cause != null) {
+                    cause.printStackTrace();
+                }
+            }
+        });
     }
+   /* private void captureImage() {
+        camera.takePicture(null, null, jpegCallback);
+    }*/
+
 
     @Override
     public void onMethodCall(MethodCall methodCall, MethodChannel.Result result) {
         if (methodCall.method.equals("waitForCamera")) {
             result.success(null);
         } else if (methodCall.method.equals("setPreviewRatio")) {
+/*
             String previewRatio = "";
 
             if (methodCall.arguments instanceof HashMap) {
@@ -233,9 +358,10 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
                 e.printStackTrace();
             }
             camera.startPreview();
-
+*/
             result.success(true);
         } else if (methodCall.method.equals("captureImage")) {
+/*
             Integer maxSize = null;
 
             if (methodCall.arguments instanceof HashMap) {
@@ -246,12 +372,12 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             if (maxSize != null) {
                 this.maxSize = maxSize;
             }
-
+*/
             captureImage();
 
             result.success(true);
         } else if (methodCall.method.equals("switchCamera")) {
-            if (cameraFacing == 0) {
+    /*        if (cameraFacing == 0) {
                 cameraFacing = 1;
             } else {
                 cameraFacing = 0;
@@ -259,9 +385,9 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
             camera.stopPreview();
             camera.release();
-            setupCamera();
+            setupCamera();*/
         } else if (methodCall.method.equals("getPictureSizes")) {
-            List<String> pictureSizes = new ArrayList<>();
+          /*  List<String> pictureSizes = new ArrayList<>();
 
             Camera.Parameters param = camera.getParameters();
 
@@ -269,9 +395,11 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             for (Camera.Size size : sizes) {
                 pictureSizes.add(size.width + ":" + size.height);
             }
-
-            result.success(pictureSizes);
+*/
+            result.error("", "", "");
+//            result.success(pictureSizes);
         } else if (methodCall.method.equals("setPictureSize")) {
+/*
             int pictureWidth = 0;
             int pictureHeight = 0;
             String error = "";
@@ -299,7 +427,8 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             }
 
             camera.startPreview();
-
+*/
+            String error = "";
             if (error.isEmpty()) {
                 result.success(true);
             } else {
@@ -319,7 +448,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
             result.success(true);
         } else if (methodCall.method.equals("setFlashType")) {
-            String flashType = "auto";
+        /*    String flashType = "auto";
 
             if (methodCall.arguments instanceof HashMap) {
                 Map<String, Object> params = (Map<String, Object>) methodCall.arguments;
@@ -356,7 +485,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            camera.startPreview();
+            camera.startPreview();*/
 
             result.success(true);
         }
@@ -388,7 +517,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
     }
 
     private void setupCamera() {
-        try {
+       /* try {
             if (cameraFacing == 0) {
                 camera = Camera.open(0);
             } else {
@@ -407,7 +536,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
                 Collections.sort(sizes2, new Comparator<Camera.Size>() {
                     @Override
                     public int compare(Camera.Size o1, Camera.Size o2) {
-                        return (o2.width-o1.width) + (o2.height-o1.height);
+                        return (o2.width - o1.width) + (o2.height - o1.height);
                     }
                 });
 
@@ -447,7 +576,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             camera.startPreview();
         } catch (Exception e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     @Override
@@ -457,17 +586,17 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        try {
+      /*  try {
             camera.stopPreview();
             camera.release();
             camera = null;
         } catch (Exception e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     private int setCameraDisplayOrientation(int cameraId) {
-        Camera.CameraInfo info = new Camera.CameraInfo();
+/*        Camera.CameraInfo info = new Camera.CameraInfo();
         Camera.getCameraInfo(cameraId, info);
 
         int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
@@ -510,12 +639,12 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
         camera.setDisplayOrientation(result);
 
-        return result;
-
+        return result;*/
+        return 1;
     }
 
     private void refreshCamera() {
-        if (surfaceHolder.getSurface() == null) {
+    /*    if (surfaceHolder.getSurface() == null) {
             return;
         }
         try {
@@ -526,11 +655,11 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             refreshCameraPreview(param);
         } catch (Exception e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     private void refreshCameraPreview(Camera.Parameters param) {
-        try {
+      /*  try {
             int orientation = setCameraDisplayOrientation(0);
 //            param.setRotation(orientation); //dicomment karena kmaren itu hp xiaomi 4a dan huawei ke-rotate
             camera.setParameters(param);
@@ -540,7 +669,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
         } catch (Exception e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     private void cancelSavePicTaskIfNeed() {
@@ -722,8 +851,6 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
         } else {
             Camera.getCameraInfo(1, info);
         }
-
-        Log.d("ricric", info.orientation + " & " + orientation);
         if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
             rotation = (info.orientation - orientation + 360) % 360;
         } else {
@@ -777,7 +904,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
 
     private void handleZoom(MotionEvent event, Camera.Parameters params) {
-        int maxZoom = params.getMaxZoom();
+    /*    int maxZoom = params.getMaxZoom();
         int zoom = params.getZoom();
         float newDist = getFingerSpacing(event);
 
@@ -794,11 +921,11 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
         }
         mDist = newDist;
         params.setZoom(zoom);
-        camera.setParameters(params);
+        camera.setParameters(params);*/
     }
 
     public void handleFocus(MotionEvent event, Camera.Parameters params) {
-        int pointerId = event.getPointerId(0);
+       /* int pointerId = event.getPointerId(0);
         int pointerIndex = event.findPointerIndex(pointerId);
         // Get the pointer's current position
 
@@ -877,7 +1004,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             } catch (Exception e) {
                 Log.e("error", "lalalalalala=> " + e);
             }
-        }
+        }*/
     }
 
     private int clamp(int x, int min, int max) {

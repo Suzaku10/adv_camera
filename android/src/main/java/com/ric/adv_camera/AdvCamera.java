@@ -105,6 +105,13 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             Object fileNamePrefix = params.get("fileNamePrefix");
             Object maxSize = params.get("maxSize");
             Object bestPictureSize = params.get("bestPictureSize");
+            /*Object useRectCustomView = params.get("useRectCustomView");
+
+
+            if (useRectCustomView != null) {
+                if (useRectCustomView.equals("true")) customView.setVisibility(View.VISIBLE);
+                if (useRectCustomView.equals("false")) customView.setVisibility(View.GONE);
+            }*/
 
             if (initialCamera != null) {
                 if (initialCamera.equals("front")) {
@@ -409,7 +416,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
                 Collections.sort(sizes2, new Comparator<Camera.Size>() {
                     @Override
                     public int compare(Camera.Size o1, Camera.Size o2) {
-                        return (o2.width-o1.width) + (o2.height-o1.height);
+                        return (o2.width - o1.width) + (o2.height - o1.height);
                     }
                 });
 
@@ -602,10 +609,10 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             options.inJustDecodeBounds = false;
             Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length, options);
 
-            if (Build.MODEL.equalsIgnoreCase("LGM-G600L")) {
+           /* if (Build.MODEL.equalsIgnoreCase("LGM-G600L")) {
                 //for now there's a case for LGM-G600L phone that its rotation degree exceeded by 90
                 rotation -= 90;
-            }
+            }*/
 
             if (maxSize != null) {
                 double initialWidth = bitmap.getWidth();

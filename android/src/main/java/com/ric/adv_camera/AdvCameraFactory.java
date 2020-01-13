@@ -1,6 +1,7 @@
 package com.ric.adv_camera;
 
 import android.content.Context;
+import android.util.Log;
 
 import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.common.StandardMessageCodec;

@@ -137,8 +137,6 @@ class AdvCameraController {
     // ignore: strong_mode_implicit_dynamic_method
     var x = await channel
         .invokeMethod('setPictureSize', {"pictureWidth": width, "pictureHeight": height});
-
-    print("setPictureSize => $x");
   }
 
   Future<void> setSavePath(String savePath) async {
@@ -148,8 +146,6 @@ class AdvCameraController {
     if (Platform.isIOS) return;
 
     var x = await channel.invokeMethod('setSavePath', {"savePath": savePath});
-
-    print("setSavePath => $x");
   }
 
   Future<void> setFlashType(FlashType flashType) async {
@@ -173,8 +169,6 @@ class AdvCameraController {
         break;
     }
     var x = await channel.invokeMethod('setFlashType', {"flashType": flashTypeString});
-
-    print("setFlashType => $x");
   }
 
 //  Future<void> changeCamera() async {

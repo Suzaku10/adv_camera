@@ -36,6 +36,7 @@ class AdvCamera extends StatefulWidget {
   final ImageCapturedCallback onImageCaptured;
   final FlashType flashType;
   final bool bestPictureSize;
+  final bool useCustomRect;
   final String fileNamePrefix;
 
   const AdvCamera({
@@ -45,6 +46,7 @@ class AdvCamera extends StatefulWidget {
     CameraSessionPreset cameraSessionPreset,
     FlashType flashType,
     bool bestPictureSize,
+    bool useCustomRect,
     this.onCameraCreated,
     this.onImageCaptured,
     this.fileNamePrefix,
@@ -55,6 +57,7 @@ class AdvCamera extends StatefulWidget {
             cameraSessionPreset ?? CameraSessionPreset.photo,
         this.flashType = flashType ?? FlashType.auto,
         this.bestPictureSize = bestPictureSize ?? true,
+        this.useCustomRect = useCustomRect ?? false,
         super(key: key);
 
   @override
@@ -134,6 +137,7 @@ class _AdvCameraState extends State<AdvCamera> {
       "flashType": flashType,
       "fileNamePrefix": widget.fileNamePrefix ?? "adv_camera",
       "bestPictureSize": widget.bestPictureSize,
+      "useCustomRect" : widget.useCustomRect,
       //for first run on Android (because on each device the default picture size is vary, for example MI 8 Lite's default is the lowest resolution)
     };
 

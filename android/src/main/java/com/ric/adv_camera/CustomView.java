@@ -1,4 +1,4 @@
-package android.src.main.java.com.ric.adv_camera;
+package com.ric.adv_camera;
 
 import android.content.Context;
 import android.graphics.Canvas;

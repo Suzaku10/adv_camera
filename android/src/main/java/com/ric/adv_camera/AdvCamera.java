@@ -105,6 +105,12 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             Object fileNamePrefix = params.get("fileNamePrefix");
             Object maxSize = params.get("maxSize");
             Object bestPictureSize = params.get("bestPictureSize");
+            Object useCustomRect = params.get("useCustomRect");
+
+            if (useCustomRect != null){
+                if (Boolean.valueOf(useCustomRect.toString())) customView.setVisibility(View.VISIBLE);
+                if (!Boolean.valueOf(useCustomRect.toString())) customView.setVisibility(View.GONE);
+            }
 
             if (initialCamera != null) {
                 if (initialCamera.equals("front")) {

@@ -563,7 +563,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
 
         public SavePicTask(byte[] data, int rotation) {
             this.data = data;
-            this.rotation = 90;
+            this.rotation = rotation;
         }
 
         protected void onPreExecute() {
@@ -608,10 +608,10 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             options.inJustDecodeBounds = false;
             Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length, options);
 
-            if (Build.MODEL.equalsIgnoreCase("LGM-G600L")) {
+/*            if (Build.MODEL.equalsIgnoreCase("LGM-G600L")) {
                 //for now there's a case for LGM-G600L phone that its rotation degree exceeded by 90
                 rotation -= 90;
-            }
+            }*/
 
             if (maxSize != null) {
                 double initialWidth = bitmap.getWidth();

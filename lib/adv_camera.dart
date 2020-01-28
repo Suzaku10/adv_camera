@@ -38,6 +38,7 @@ class AdvCamera extends StatefulWidget {
   final bool bestPictureSize;
   final bool useCustomRect;
   final String fileNamePrefix;
+  final String addedText;
 
   const AdvCamera({
     Key key,
@@ -49,7 +50,7 @@ class AdvCamera extends StatefulWidget {
     bool useCustomRect,
     this.onCameraCreated,
     this.onImageCaptured,
-    this.fileNamePrefix,
+    this.fileNamePrefix, this.addedText,
   })  : this.initialCameraType = initialCameraType ?? CameraType.rear,
         this.cameraPreviewRatio =
             cameraPreviewRatio ?? CameraPreviewRatio.r16_9,
@@ -138,6 +139,7 @@ class _AdvCameraState extends State<AdvCamera> {
       "fileNamePrefix": widget.fileNamePrefix ?? "adv_camera",
       "bestPictureSize": widget.bestPictureSize,
       "useCustomRect" : widget.useCustomRect,
+      "addedText" : widget.addedText,
       //for first run on Android (because on each device the default picture size is vary, for example MI 8 Lite's default is the lowest resolution)
     };
 

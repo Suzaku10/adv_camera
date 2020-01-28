@@ -19,6 +19,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.TextView;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -53,6 +54,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
     private SurfaceHolder surfaceHolder;
     private Camera camera;
     private CustomView customView;
+    private TextView addText;
     private int cameraFacing = 0;
     private SavePicTask savePicTask;
     private Camera.PictureCallback jpegCallback;
@@ -81,6 +83,7 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
         view = registrar.activity().getLayoutInflater().inflate(R.layout.activity_camera, null);
         imgSurface = view.findViewById(R.id.imgSurface);
         customView = view.findViewById(R.id.rect);
+        addText = view.findViewById(R.id.addText);
         CameraFragment cameraFragment = (CameraFragment) activity.getFragmentManager().findFragmentById(R.id.cameraFragment);
         imgSurface.setFocusable(true);
         imgSurface.setFocusableInTouchMode(true);
@@ -106,6 +109,13 @@ public class AdvCamera implements MethodChannel.MethodCallHandler,
             Object maxSize = params.get("maxSize");
             Object bestPictureSize = params.get("bestPictureSize");
             Object useCustomRect = params.get("useCustomRect");
+            Object addedTexts = params.get("addedText");
+
+            if(addedTexts != null){
+                addText.setText(addedTexts.toString());
+            } else {
+                addText.setVisibility(View.GONE);
+            }
 
             if (useCustomRect != null){
                 if (Boolean.valueOf(useCustomRect.toString())) customView.setVisibility(View.VISIBLE);
